@@ -13,7 +13,7 @@
 
 <h1>MHRS Sorgulama</h1>
 
-<p>Aranan Hastane: <input type="text" id="hastane" value="ŞEHİR"></p>
+<p>Aranan Hastane: <input type="text" id="hastane" size="60" value="ŞEHİR,DIŞKAPI,ULUCANLAR,KEÇİÖREN,ÇANKAYA,EMEK,ALTINDAĞ"></p>
 <p>Bekleme (Saniye): <input type="text" id="bekleme" value="60"></p>
 <p>Sorgu Adedi: <span id="SAYAC"></span></p>
 <h3>Sorgu Sonucu: </h3>
@@ -117,11 +117,18 @@ async function MHRS_SORGU() {
     }
 
 
+    let arrHastaneler = getHastane().split(",");
+
     for(let i=0; i<mhrsCevap?.data?.hastane?.length; i++) {
+        let bulundu = 0;
         hastane = mhrsCevap.data.hastane[i].kurumBilgileri.kurumAdi
         updateLog("Boş Hastane: " + hastane);
-        position = hastane.search(HASTANE);
-        if(position != -1) {
+        for(let i in arrHastaneler ) {
+            position = hastane.search( arrHastaneler[i].trim() );
+            if(position != -1) bulundu = 1;
+        }
+
+        if(bulundu == 1) {
             console.log("Hastane bulundu...")
             audio.play();
             let m = "<b style='color:red;'>BOŞ RANDEVU BULUNDU "+hastane+" </b>"
