@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="icon" class="js-site-favicon" type="image/svg+xml" href="https://github.githubassets.com/favicons/favicon.svg">
+
+
+
+</head>
+<body>
+
+<h1>MHRS Sorgulama</h1>
+
+<p>Aranan Hastane: <input type="text" id="hastane" value="ŞEHİR"></p>
+<p>Bekleme (Saniye): <input type="text" id="bekleme" value="60"></p>
+<p>Sorgu Adedi: <span id="SAYAC"></span></p>
+<h3>Sorgu Sonucu: </h3>
+<div id="msg"></div>
+
+<h3>Sorgu LOG: </h3>
+<div id="log" style="height: 100px;"></div>
+
+<script>
+
+var CEVAP;
+var mhrsCevap;
+var audio = new Audio('synth-telephone-ring-001-8434.mp3');
+var Bekleme = document.getElementById("bekleme").value
+var MSG     = document.getElementById("msg")
+var LOG     = document.getElementById("log")
+var HASTANE = document.getElementById("hastane").value
+var SAYAC   = 0;
+
+
+CEVAP = MHRS_SORGU(); // Sayaya girer girmez 1 defa sorgula...
+const myTimeout = setInterval(function(){
+    CEVAP = MHRS_SORGU(); // Düzenli bir sıklıkla sorgula
+}, getBekleme());
+
+
+function getHastane() {
+    return document.getElementById("hastane").value
+}
+
+function getBekleme() {
+    Bekleme = document.getElementById("bekleme").value
+    Bekleme = Bekleme * 1000;
+    return Bekleme;
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+//KULLANIM: await sleep(10000); // 10 saniye bekle
+
+function updateLog(logMsg){
+    if(logMsg == "") {
+        LOG.innerHTML = "<br>" + LOG.innerHTML;
+    } else {
+        const d = new Date();
+        SAAT = d.toLocaleTimeString("tr-tr");
+        LOG.innerHTML = SAAT + " " + logMsg + "<br>" + LOG.innerHTML;
+    }
+}
+
+
+async function MHRS_SORGU() {
+    //console.log("Sorgu başladı")
+    updateLog("Sorgu başladı")
+
+    mhrsCevap = await fetch("https://prd.mhrs.gov.tr/api/kurum-rss/randevu/slot-sorgulama/arama", {
+        "credentials": "include",
+        "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "tr-TR",
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "DELETE, POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization,Content-Type, Accept, X-Requested-With, remember-me",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "3600",
+            "Authorization": "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIzNGFhOWEzYi1iZDFmLTQ0NDgtODkxMC0wYmQ4MWQ3YzNiYzIiLCJpYXQiOjE2NDUzODEyMzAsImV4cCI6MTY0NTQ2NzYzMCwidXNlciI6eyJ1dWlkIjoiZWY5OTUwZTctMTUzOC00ZDVkLTgzOWMtODJjZjI0NmU4ZmUwIiwidG9rZW5UaXBpIjoiVkFUQU5EQVMiLCJpc2xlbUthbmFsaSI6IlZBVEFOREFTX0VERVZMRVQifX0.vQUpzCYbf-VBumyToKXo67nJ0SQpvdeAgCgysGvHixOuPu_CDLDwy06z1gjr1DQ7ZqMPlwN4wmt6qyhFtTlTrw",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site"
+        },
+        "referrer": "https://mhrs.gov.tr/",
+        "body": "{\"aksiyonId\":\"200\",\"cinsiyet\":\"F\",\"mhrsHekimId\":-1,\"mhrsIlId\":6,\"mhrsIlceId\":-1,\"mhrsKlinikId\":151,\"mhrsKurumId\":-1,\"muayeneYeriId\":-1,\"tumRandevular\":false,\"ekRandevu\":true,\"randevuZamaniList\":[]}",
+        "method": "POST",
+        "mode": "cors"
+    })
+      .catch(function() {
+            console.log("error");
+            updateLog("Hata oldu! catch bloğuna düştük...")
+            updateLog("");
+            return "HATAOLDU";
+        })
+      .then(response => response.json())
+      //.then(data => console.log("GELEN CEVAP", data))
+
+    // if(mhrsCevap != "HATAOLDU") console.log(mhrsCevap)
+
+    let hastane;
+    let position;
+
+    SAYAC++;
+    document.getElementById("SAYAC").innerHTML = SAYAC;
+
+    if( mhrsCevap?.errors[0]?.length > 0 ) {
+        //console.log("MHRS HATA")
+        MSG.innerHTML = mhrsCevap?.errors[0]?.mesaj
+        updateLog(mhrsCevap?.errors[0]?.kodu + " : " + mhrsCevap?.errors[0]?.mesaj)
+        return;
+    }
+
+
+    for(let i=0; i<mhrsCevap?.data?.hastane?.length; i++) {
+        hastane = mhrsCevap.data.hastane[i].kurumBilgileri.kurumAdi
+        updateLog("Boş Hastane: " + hastane);
+        position = hastane.search(HASTANE);
+        if(position != -1) {
+            console.log("Hastane bulundu...")
+            audio.play();
+            let m = "<b style='color:red;'>BOŞ RANDEVU BULUNDU "+hastane+" </b>"
+            updateLog(m)
+            MSG.innerHTML = m + "<br>" + MSG.innerHTML
+        }
+        //console.log(i, hastane)
+    }
+    //console.log("Sorgu tamamlandı")
+    updateLog("Sorgu tamamlandı")
+    updateLog("")
+    //return 0;
+    return mhrsCevap;
+
+}
+
+
+</script>
+    
+</body>
+</html>
+
+
